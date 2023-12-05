@@ -48,10 +48,10 @@ class Board:
     def place_initial_pawns(self):
         #  We pick the 4 central tiles
         #  And place 2 black pawns and 2 white pawns
-        self.board[27].content = "👻"
-        self.board[28].content = "🥷"
-        self.board[35].content = "🥷"
-        self.board[36].content = "👻"
+        self.board[27].content = "⚪"
+        self.board[28].content = "⚫"
+        self.board[35].content = "⚫"
+        self.board[36].content = "⚪"
 
     # Check if the position in inside the board
     # Return true or false depending if it is inside or not
@@ -89,10 +89,10 @@ class Board:
         ]
 
         # Opposite of the color of the placed pawn
-        if color == "👻":
-            awaited_color = "🥷"
+        if color == "⚪":
+            awaited_color = "⚫"
         else:
-            awaited_color = "👻"
+            awaited_color = "⚪"
 
         current_x_pos = x_pos
         current_y_pos = y_pos
@@ -177,7 +177,7 @@ class Game:
     def __init__(self):
         self.score_black = 2
         self.score_white = 2
-        self.active_player = "🥷"
+        self.active_player = "⚫"
         self.is_game_over = False
         self.winner = "Noone"
 
@@ -208,11 +208,11 @@ class Game:
     # Change the active player color from black to white or white to black
     def change_active_player(self):
         # Prend self.active_player et change la couleur du joueur actif
-        if self.active_player == "🥷":
-            self.active_player = "👻"
+        if self.active_player == "⚫":
+            self.active_player = "⚪"
             print("C'est au tour du joueur blanc")
         else:
-            self.active_player = "🥷"
+            self.active_player = "⚫"
             print("C'est au tour du joueur noir")
 
     # Update the players score after a successful move
@@ -221,9 +221,9 @@ class Game:
         w_score = 0
         b_score = 0
         for tile_index in board_instance.board:
-            if tile_index.content == "👻":
+            if tile_index.content == "⚪":
                 w_score += 1
-            elif tile_index.content == "🥷":
+            elif tile_index.content == "⚫":
                 b_score += 1
         self.score_black = b_score
         self.score_white = w_score
@@ -248,10 +248,10 @@ class Game:
         print("Le joueur white a: " + str(self.score_white) + " points")
         if (self.score_black > self.score_white):
             print("Le joueur noir a gagné !")
-            self.winner = "🥷"
+            self.winner = "⚫"
         elif (self.score_white > self.score_black):
             print("Le joueur blanc a gagné !")
-            self.winner = "👻"
+            self.winner = "⚪"
         else:
             print("Égalité !")
 
@@ -262,38 +262,83 @@ class Bot:
 
     # BOT FUNCTIONS
 
-    def check_around_border(self, tile_index):
-        # Check la position : https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcRr48OM5rIs4wg10sQdFvXzrGBxJ5g0lEQbESg9l2-XcmrYs8U467RRVUZKBVtUbARG6o0&usqp=CAU
+    def check_around_border(self, tile_index, board_points):
+
         value = 0
-        if (tile_index.x_pos, tile_index.y_pos) in [(0, 0), (7, 7), (0, 7), (7, 0)]:
-            value = value + 500
-        
-        if (tile_index.x_pos, tile_index.y_pos) in [(1, 1), (6, 6), (1, 6), (6, 1)]:
-            value = value - 200
-        
-        if (tile_index.x_pos, tile_index.y_pos) in [(0, 1), (1, 0), (6, 0), (1, 7), (6, 7), (7, 6), (7, 1), (0, 6)]:
-            value = value - 150
-
-        if (tile_index.x_pos, tile_index.y_pos) in [(2, 0), (5, 0), (2, 7), (5, 7), (0, 2), (0, 5), (7, 2), (7, 5)]:
-            value = value + 30
-        
-        if (tile_index.x_pos, tile_index.y_pos) in [(0, 3), (0, 4), (3, 0), (4, 0), (7, 3), (7, 4), (3, 7), (4, 7)]:
-            value = value + 10
-        
-        if (tile_index.x_pos, tile_index.y_pos) in [(2, 1), (3, 1), (4, 1), (5, 1), (6, 2), (6, 3), (6, 4), (6, 5), (2, 6), (3, 6), (4, 6), (5, 6), (1, 2), (1, 3), (1, 4), (1, 5)]:
-            value = value + 0
-
-        if (tile_index.x_pos, tile_index.y_pos) in [(2, 2), (5, 2), (2, 5), (5, 5)]:
-            value = value + 1
-
-        if (tile_index.x_pos, tile_index.y_pos) in [(3, 2), (4, 2), (3, 5), (4, 5), (2, 3), (2, 4), (5, 3), (5, 4)]:
-            value = value + 2
-
-        if (tile_index.x_pos, tile_index.y_pos) in [(3, 3), (4, 3), (3, 4), (4, 4)]:
-            value = value + 16
+        value = value + board_points[tile_index.y_pos][tile_index.x_pos]
 
         return value
 
+
+    def check_valid_moves(self, othello_game, board_instance):
+            current_turn = othello_game.score_white + othello_game.score_black
+            board_points = [
+            [500, -150, 30, 10, 10, 30, -150, 500],
+            [-150, -250, 0, 0, 0, 0, -250, -150],
+            [30, 0, 1, 2, 2, 1, 0, 30],
+            [10, 0, 2, 32, 32, 2, 0, 10],
+            [10, 0, 2, 32, 32, 2, 0, 10],
+            [30, 0, 1, 2, 2, 1, 0, 30],
+            [-150, -250, 0, 0, 0, 0, -250, -150],
+            [500, -150, 30, 10, 10, 30, -150, 500],
+            ]
+            # if(current_turn <= 20):
+            #     print('Ouverture')
+            #     # Pendant l’ouverture (les douze premiers coups environ), les critères à prendre en compte sont la mobilité (qui doit être maximum) et la position.
+            #     # ->
+            #     board_points = [
+            #     [500, -150, 30, 10, 10, 30, -150, 500],
+            #     [-150, -250, 0, 0, 0, 0, -250, -150],
+            #     [30, 0, 1, 2, 2, 1, 0, 30],
+            #     [10, 0, 2, 100, 200, 2, 0, 10],
+            #     [10, 0, 2, 100, 100, 2, 0, 10],
+            #     [30, 0, 1, 2, 2, 1, 0, 30],
+            #     [-150, -250, 0, 0, 0, 0, -250, -150],
+            #     [500, -150, 30, 10, 10, 30, -150, 500],
+            #     ]
+            max_gain = 0
+            all_max_points = []
+            for tile_index in board_instance.board:
+                playable_move = board_instance.is_legal_move(tile_index.x_pos, tile_index.y_pos, othello_game.active_player)
+                if playable_move:
+                    current_gain = 0
+                    for direction_points in playable_move:
+                        for i in range(direction_points[0]):
+                            new_x = tile_index.x_pos + direction_points[1][0]
+                            new_y = tile_index.y_pos + direction_points[1][1]
+                            # print(board_points[new_x][new_y])
+                            current_gain += board_points[new_x][new_y]
+                        
+                        current_tile_pos = [tile_index.x_pos, tile_index.y_pos]
+                        current_gain += direction_points[0]
+                        bonus = self.check_around_border(tile_index, board_points)
+                        current_gain += bonus
+
+                    if max_gain == 0:
+                        max_gain = current_gain
+
+                    if current_gain > max_gain:
+                        all_max_points = []
+                        max_gain = current_gain
+                        max_gain_move = [tile_index.x_pos, tile_index.y_pos]
+                        print(max_gain_move)
+                        all_max_points.append(max_gain_move)
+                    elif current_gain == max_gain:
+                        max_gain_move = [tile_index.x_pos, tile_index.y_pos]
+                        print(max_gain_move)
+                        all_max_points.append(max_gain_move)
+                    # else :
+                    #     max_gain = current_gain
+                    #     max_gain_move = [tile_index.x_pos, tile_index.y_pos]
+                    #     all_max_points.append(max_gain_move)
+            return random.choice(all_max_points)
+
+
+class BotD:
+    def __init__(self):
+        self.name = "Corto fan account"
+
+    # BOT FUNCTIONS
 
     def check_valid_moves(self, othello_game, board_instance):
             max_gain = -1000
@@ -302,34 +347,14 @@ class Bot:
                 # playable_move = False || [1, [0, 1]]
                 playable_move = board_instance.is_legal_move(tile_index.x_pos, tile_index.y_pos, othello_game.active_player)
                 if playable_move:
-                    # print([playable_move[0][1][0] + tile_index.x_pos, playable_move[0][1][1] + tile_index.y_pos])
                     current_gain = 0
                     for direction_points in playable_move:
-
-
+                        for i in range(direction_points[0]):
+                            new_x = tile_index.x_pos + direction_points[1][0]
+                            new_y = tile_index.y_pos + direction_points[1][1]
+ 
                         current_tile_pos = [tile_index.x_pos, tile_index.y_pos]
-                        number_new_tiles = direction_points[0]
-                        change_x = number_new_tiles * direction_points[1][0]
-                        change_y = number_new_tiles * direction_points[1][1]
-                        # print('changes X')
-                        # print(change_x)
-                        # print('changes Y')
-                        # print(change_y)
-
-                        new_x = tile_index.x_pos + change_x
-                        new_y = tile_index.y_pos + change_y
-                        print('lllll')
-                        print([new_x, new_y])
-
-                        # print([tile_index.x_pos, tile_index.y_pos])
-                        # print('HERE')
-                        # print([direction_points[1][0] + tile_index.x_pos, direction_points[1][1] + tile_index.y_pos])
-
                         current_gain += direction_points[0]
-                        # print('——————————————')
-                        # print(direction_points)
-                        bonus = self.check_around_border(tile_index)
-                        current_gain = current_gain + bonus
                     if current_gain > max_gain:
                         all_max_points = []
                         max_gain = current_gain
@@ -353,10 +378,6 @@ othello_board.create_board()
 # Draw the board
 othello_board.draw_board("Content")
 
-# Create 2 bots
-myBot = Bot()
-otherBot = Bot()
-
 
 # Loop until the game is over
 def play_games(number_of_games):
@@ -374,25 +395,24 @@ def play_games(number_of_games):
         othello_board.draw_board("Content")
         # Create 2 bots
         myBot = Bot()
-        otherBot = Bot()
-
+        # otherBot = Bot()
+        otherBot = BotD()
         while not othello_game.is_game_over:
             # First player / bot logic goes here
-            if(othello_game.active_player == "🥷"):
+            if(othello_game.active_player == "⚫"):
                 move_coordinates = myBot.check_valid_moves(othello_game, othello_board)
                 othello_game.place_pawn(
                 move_coordinates[0], move_coordinates[1], othello_board, othello_game.active_player)
-
 
             # Second player / bot logic goes here
             else:
-                move_coordinates = myBot.check_valid_moves(othello_game, othello_board)
+                move_coordinates = otherBot.check_valid_moves(othello_game, othello_board)
                 othello_game.place_pawn(
                 move_coordinates[0], move_coordinates[1], othello_board, othello_game.active_player)
         
-        if(othello_game.winner == "🥷"):
+        if(othello_game.winner == "⚫"):
             black_victories += 1
-        elif(othello_game.winner == "👻"):
+        elif(othello_game.winner == "⚪"):
             white_victories += 1
         
     
@@ -401,33 +421,4 @@ def play_games(number_of_games):
     print("White player won " + str(white_victories) + " times")
         
 
-play_games(1)
-
-
-
-##
-##
-##
-##
-##
-##
-
-# while not othello_game.is_game_over:
-#     # First player / bot logic goes here
-#     if (othello_game.active_player == "B"):
-#         move_coordinates = myBot.check_valid_moves(othello_game, othello_board)
-#         # move_coordinates = [0, 0]
-#         # move_coordinates[0] = int(input("Coordonnées en X: "))
-#         # move_coordinates[1] = int(input("Coordonnées en Y: "))
-#         othello_game.place_pawn(
-#             move_coordinates[0], move_coordinates[1], othello_board, othello_game.active_player)
-
-#     # Second player / bot logic goes here
-#     else:
-#         # myBot.check_valid_moves()
-#         move_coordinates = myBot.check_valid_moves(othello_game, othello_board)
-#         # move_coordinates = [0, 0]
-#         # move_coordinates[0] = int(input("Coordonnées en X: "))
-#         # move_coordinates[1] = int(input("Coordonnées en Y: "))
-#         othello_game.place_pawn(
-#             move_coordinates[0], move_coordinates[1], othello_board, othello_game.active_player)
+play_games(10000)
