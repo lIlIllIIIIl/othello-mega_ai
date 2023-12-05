@@ -1,4 +1,4 @@
-#Test bite
+#Test
 import random
 
 # Object used to create new boards
@@ -259,10 +259,15 @@ class Bot:
 
     # BOT FUNCTIONS
 
-    def check_valid_moves(self):
-        print("Il faut récupérer toutes les cases du tableau")
-        print("Vérifier quels coups sont jouables")
-        print("Et renvoyer les coordonnées")
+    def check_valid_moves(self, othello_game, board_instance):
+        # if othello_game.check_for_valid_moves(board_instance):
+            print('here !')
+            for tile_index in board_instance.board:
+                print(tile_index.x_pos)
+                jsp = board_instance.is_legal_move(tile_index.x_pos, tile_index.y_pos, othello_game.active_player)
+                if jsp:
+                    move_coordinates = [tile_index.x_pos, tile_index.y_pos]
+                    return move_coordinates
 
 
 # Create a new board & a new game instances
@@ -283,14 +288,16 @@ otherBot = Bot()
 while not othello_game.is_game_over:
     # First player / bot logic goes here
     if (othello_game.active_player == "B"):
-        move_coordinates = [0, 0]
-        move_coordinates[0] = int(input("Coordonnées en X: "))
-        move_coordinates[1] = int(input("Coordonnées en Y: "))
+        move_coordinates = myBot.check_valid_moves(othello_game, othello_board)
+        # move_coordinates = [0, 0]
+        # move_coordinates[0] = int(input("Coordonnées en X: "))
+        # move_coordinates[1] = int(input("Coordonnées en Y: "))
         othello_game.place_pawn(
             move_coordinates[0], move_coordinates[1], othello_board, othello_game.active_player)
 
     # Second player / bot logic goes here
     else:
+        # myBot.check_valid_moves()
         move_coordinates = [0, 0]
         move_coordinates[0] = int(input("Coordonnées en X: "))
         move_coordinates[1] = int(input("Coordonnées en Y: "))
