@@ -1,5 +1,6 @@
-#Test
 import random
+import tensorflow as tf
+import numpy as np
 
 # Object used to create new boards
 
@@ -179,6 +180,7 @@ class Game:
         self.score_white = 2
         self.active_player = "B"
         self.is_game_over = False
+        self.winner = "Noone"
 
     # Place a pawn on the board (checks if the move is legal before placing it)
     # It takes a position (x, y), a Board object instance and a color
@@ -247,28 +249,115 @@ class Game:
         print("Le joueur white a: " + str(self.score_white) + " points")
         if (self.score_black > self.score_white):
             print("Le joueur noir a gagné !")
+            self.winner = "B"
         elif (self.score_white > self.score_black):
             print("Le joueur blanc a gagné !")
+            self.winner = "W"
         else:
             print("Égalité !")
 
-
-class Bot:
+class Learner:
     def __init__(self):
         self.name = "Corto fan account"
+        self.model = self.create_model()  
+        self.game_history = []
+        
+    def create_model(self):
+        # Init tensorflow
+        model = tf.keras.Sequential([
+            tf.keras.layers.Flatten(input_shape=(8, 8)),
+            tf.keras.layers.Dense(64, activation='relu'),
+            tf.keras.layers.Dense(64, activation='relu'),
+            tf.keras.layers.Dense(64, activation='softmax')
+        ])
 
-    # BOT FUNCTIONS
+        model.compile(optimizer='adam', loss='sparse_categorical_crossentropy')
+        return model
 
+    def record_game_data(self, state, move, reward):
+        #Save les données de jeu
+        self.game_history.append((state, move, reward))
+        
+    def calculate_reward(self, previous_state, current_state, player_color):
+        # Comptez le nombre de pions de la couleur de l'IA dans l'état actuel et précédent
+        current_score = np.sum(current_state == player_color)
+        previous_score = np.sum(previous_state == player_color)
+        return current_score - previous_score
+
+    def convert_move_to_index(self, move):
+        # Transforme une paire de coordonnées (x, y) en un seul indice
+        x, y = move
+        return x * 8 + y
+
+    def train_model(self):
+        if not self.game_history:
+            print("Pas de données d'entraînement disponibles.")
+            return
+
+        states, moves, rewards = zip(*self.game_history)
+        states = np.array(states)
+        
+        # Transformation des mouvements en indices
+        moves = np.array([self.convert_move_to_index(move) for move in moves])
+
+        rewards = np.array(rewards)
+
+        print("States shape:", states.shape)
+        print("Moves shape:", moves.shape)
+        print("Rewards shape:", rewards.shape)
+
+        if states.shape[0] != moves.shape[0]:
+            print("Erreur : les dimensions des states et des moves ne correspondent pas.")
+            return
+
+        # Entraînement du modèle
+        self.model.fit(states, moves, sample_weight=rewards, epochs=10)
+
+        # self.game_history = []
+
+    def save_model(self, file_path):
+        self.model.save(file_path)
+
+    def load_model(self, file_path):
+        self.model = tf.keras.models.load_model(file_path)
+    
     def check_valid_moves(self, othello_game, board_instance):
-        # if othello_game.check_for_valid_moves(board_instance):
-            print('here !')
-            for tile_index in board_instance.board:
-                print(tile_index.x_pos)
-                jsp = board_instance.is_legal_move(tile_index.x_pos, tile_index.y_pos, othello_game.active_player)
-                if jsp:
-                    move_coordinates = [tile_index.x_pos, tile_index.y_pos]
-                    return move_coordinates
+        # Convertir en un format compris par l'IA
+        state = self.convert_to_state(board_instance)
+        # Choisir un coup
+        move = self.choose_move(state, othello_game, board_instance)
+        if move is not None:
+            # Enregistrement des données de jeu avant de jouer le coup
+            previous_state = np.copy(state)  # Copie de l'état actuel avant le coup
+            reward = self.calculate_reward(previous_state, state, othello_game.active_player)
+            self.record_game_data(previous_state, move, reward)
+        return move
+        
+    def convert_to_state(self, board_instance):
+        state = []
+        for tile in board_instance.board:
+            if tile.content == 'B':
+                state.append(1)
+            elif tile.content == 'W':
+                state.append(-1)
+            else:
+                state.append(0)
+        return np.array(state).reshape((8, 8))
+    
+    def choose_move(self, state, othello_game, board_instance):
+        predictions = self.model.predict(state.reshape((1, 8, 8)))
+        valid_moves = self.get_valid_moves(othello_game, board_instance)
+        if valid_moves:
+            return max(valid_moves, key=lambda move: predictions[0][move[1]*8 + move[0]])
+        else:
+            return None
 
+    def get_valid_moves(self, othello_game, board_instance):
+        valid_moves = []
+        for tile in board_instance.board:
+            if board_instance.is_legal_move(tile.x_pos, tile.y_pos, othello_game.active_player):
+                valid_moves.append((tile.x_pos, tile.y_pos))
+        return valid_moves
 
 # Create a new board & a new game instances
 othello_board = Board(8)
@@ -280,26 +369,62 @@ othello_board.create_board()
 # Draw the board
 othello_board.draw_board("Content")
 
-# Create 2 bots
-myBot = Bot()
-otherBot = Bot()
-
 # Loop until the game is over
-while not othello_game.is_game_over:
-    # First player / bot logic goes here
-    if (othello_game.active_player == "B"):
-        move_coordinates = myBot.check_valid_moves(othello_game, othello_board)
-        # move_coordinates = [0, 0]
-        # move_coordinates[0] = int(input("Coordonnées en X: "))
-        # move_coordinates[1] = int(input("Coordonnées en Y: "))
-        othello_game.place_pawn(
-            move_coordinates[0], move_coordinates[1], othello_board, othello_game.active_player)
+def play_games(number_of_games):
+    white_victories = 0
+    black_victories = 0
+    for current_game in range(number_of_games):
+        # Create a new board & a new game instances
+        othello_board = Board(8)
+        othello_game = Game()
 
-    # Second player / bot logic goes here
-    else:
-        # myBot.check_valid_moves()
-        move_coordinates = [0, 0]
-        move_coordinates[0] = int(input("Coordonnées en X: "))
-        move_coordinates[1] = int(input("Coordonnées en Y: "))
-        othello_game.place_pawn(
-            move_coordinates[0], move_coordinates[1], othello_board, othello_game.active_player)
+        # Fill the board with tiles
+        othello_board.create_board()
+
+        # Draw the board
+        othello_board.draw_board("Content")
+        # Create 2 bots
+        myBot = Learner()
+        otherBot = Learner()
+        
+        # Chargements modèles
+        # try:
+        #     myBot.load_model("myBot_model.h5")
+        #     otherBot.load_model("otherBot_model.h5")
+        # except Exception as e:
+        #     print("Erreur lors du chargement des modèles:", e)
+
+        while not othello_game.is_game_over:
+            # First player / bot logic goes here
+            if(othello_game.active_player == "B"):
+                move_coordinates = myBot.check_valid_moves(othello_game, othello_board)
+                # move_coordinates[0] = int(input("Coordonnées en X: "))
+                # move_coordinates[1] = int(input("Coordonnées en Y: "))
+                othello_game.place_pawn(
+                move_coordinates[0], move_coordinates[1], othello_board, othello_game.active_player)
+
+            # Second player / bot logic goes here
+            else:
+                move_others_coordinates = otherBot.check_valid_moves(othello_game, othello_board)
+                # move_coordinates[0] = int(input("Coordonnées en X: "))
+                # move_coordinates[1] = int(input("Coordonnées en Y: "))
+                othello_game.place_pawn(
+                move_others_coordinates[0], move_others_coordinates[1], othello_board, othello_game.active_player)
+        
+        myBot.train_model()
+        otherBot.train_model()
+        
+        # myBot.save_model("myBot_model.h5")
+        # otherBot.save_model("otherBot_model.h5")
+        
+        if(othello_game.winner == "B"):
+            black_victories += 1
+        elif(othello_game.winner == "W"):
+            white_victories += 1
+
+    print("End of the games, showing scores: ")
+    print("Black player won " + str(black_victories) + " times")
+    print("White player won " + str(white_victories) + " times")
+        
+
+play_games(9)
