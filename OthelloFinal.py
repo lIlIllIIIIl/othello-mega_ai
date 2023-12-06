@@ -1,6 +1,8 @@
 import random
 import tensorflow as tf
 import numpy as np
+import json
+import os
 
 # Object used to create new boards
 
@@ -256,12 +258,90 @@ class Game:
         else:
             print("Égalité !")
 
+class Bot:
+    def __init__(self):
+        self.name = "Corto fan account"
+
+    # BOT FUNCTIONS
+
+    def check_around_border(self, tile_index, board_points):
+
+        value = 0
+        value = value + board_points[tile_index.y_pos][tile_index.x_pos]
+
+        return value
+
+
+    def check_valid_moves(self, othello_game, board_instance):
+            current_turn = othello_game.score_white + othello_game.score_black
+            board_points = [
+            [500, -150, 30, 10, 10, 30, -150, 500],
+            [-150, -250, 0, 0, 0, 0, -250, -150],
+            [30, 0, 1, 2, 2, 1, 0, 30],
+            [10, 0, 2, 32, 32, 2, 0, 10],
+            [10, 0, 2, 32, 32, 2, 0, 10],
+            [30, 0, 1, 2, 2, 1, 0, 30],
+            [-150, -250, 0, 0, 0, 0, -250, -150],
+            [500, -150, 30, 10, 10, 30, -150, 500],
+            ]
+
+            max_gain = 0
+            all_max_points = []
+            for tile_index in board_instance.board:
+                playable_move = board_instance.is_legal_move(tile_index.x_pos, tile_index.y_pos, othello_game.active_player)
+                if playable_move:
+                    current_gain = 0
+                    for direction_points in playable_move:
+                        for i in range(direction_points[0]):
+                            new_x = tile_index.x_pos + direction_points[1][0]
+                            new_y = tile_index.y_pos + direction_points[1][1]
+                            # print(board_points[new_x][new_y])
+                            current_gain += board_points[new_x][new_y]
+                        
+                        current_tile_pos = [tile_index.x_pos, tile_index.y_pos]
+                        current_gain += direction_points[0]
+                        bonus = self.check_around_border(tile_index, board_points)
+                        current_gain += bonus
+
+                    if max_gain == 0:
+                        max_gain = current_gain
+
+                    if current_gain > max_gain:
+                        all_max_points = []
+                        max_gain = current_gain
+                        max_gain_move = [tile_index.x_pos, tile_index.y_pos]
+                        print(max_gain_move)
+                        all_max_points.append(max_gain_move)
+                    elif current_gain == max_gain:
+                        max_gain_move = [tile_index.x_pos, tile_index.y_pos]
+                        print(max_gain_move)
+                        all_max_points.append(max_gain_move)
+                    # else :
+                    #     max_gain = current_gain
+                    #     max_gain_move = [tile_index.x_pos, tile_index.y_pos]
+                    #     all_max_points.append(max_gain_move)
+            return random.choice(all_max_points)
+
 class Learner:
     def __init__(self):
         self.name = "Corto fan account"
         self.model = self.create_model()  
         self.game_history = []
-        
+        self.training_threshold = 10
+        self.move_counter = 0
+        self.data_file = "game_history.json"
+        self.load_game_data()
+        self.board_points = [
+        [500, -150, 30, 10, 10, 30, -150, 500],
+        [-150, -250, 0, 0, 0, 0, -250, -150],
+        [30, 0, 1, 2, 2, 1, 0, 30],
+        [10, 0, 2, 32, 32, 2, 0, 10],
+        [10, 0, 2, 32, 32, 2, 0, 10],
+        [30, 0, 1, 2, 2, 1, 0, 30],
+        [-150, -250, 0, 0, 0, 0, -250, -150],
+        [500, -150, 30, 10, 10, 30, -150, 500],
+        ] 
+               
     def create_model(self):
         # Init tensorflow
         model = tf.keras.Sequential([
@@ -273,10 +353,60 @@ class Learner:
 
         model.compile(optimizer='adam', loss='sparse_categorical_crossentropy')
         return model
+    
+    def load_game_data(self):
+        try:
+            with open(self.data_file, 'r') as file:
+                self.game_history = json.load(file)
+                # Reconvertissez les états et les mouvements en ndarray si nécessaire
+                self.game_history = [(np.array(state), np.array(move), reward)
+                                    for state, move, reward in self.game_history]
+            print("Données de jeu chargées avec succès.")
+        except FileNotFoundError:
+            print("Fichier de données non trouvé. Création d'un nouveau fichier.")
+        except Exception as e:
+            print(f"Erreur lors du chargement des données : {e}")
+            
+    def save_game_data(self):
+        # Convertir les ndarray en listes dans self.game_history
+        converted_game_history = []
+        for state, move, reward in self.game_history:
+            state = state.tolist() if isinstance(state, np.ndarray) else state
+            move = move.tolist() if isinstance(move, np.ndarray) else move
+            reward = int(reward) if isinstance(reward, np.integer) else reward
+            converted_game_history.append((state, move, reward))
 
+        # Sauvegarder toutes les données
+        try:
+            with open(self.data_file, 'w') as file:
+                json.dump(converted_game_history, file)
+            print("Données de jeu sauvegardées avec succès.")
+        except Exception as e:
+            print(f"Erreur lors de la sauvegarde des données : {e}")
+       
+    def check_around_border(self, tile_index):
+        value = 0
+        value += self.board_points[tile_index.y_pos][tile_index.x_pos]
+        return value
+            
     def record_game_data(self, state, move, reward):
-        #Save les données de jeu
+        # Convertir 'state' et 'move' en listes Python si ce sont des ndarray
+        state = state.tolist() if isinstance(state, np.ndarray) else state
+        move = move.tolist() if isinstance(move, np.ndarray) else move
+
+        # Convertir 'reward' et autres données potentiellement de type Numpy en types Python standards
+        reward = int(reward) if isinstance(reward, np.integer) else reward
+
+        # Save les données de jeu
         self.game_history.append((state, move, reward))
+        self.move_counter += 1        
+                
+        if self.move_counter >= self.training_threshold:
+            self.train_model()
+            self.move_counter = 0
+            
+        #Sauvegarde des données 1
+        self.save_game_data()
         
     def calculate_reward(self, previous_state, current_state, player_color):
         # Comptez le nombre de pions de la couleur de l'IA dans l'état actuel et précédent
@@ -302,25 +432,17 @@ class Learner:
 
         rewards = np.array(rewards)
 
-        print("States shape:", states.shape)
-        print("Moves shape:", moves.shape)
-        print("Rewards shape:", rewards.shape)
-
         if states.shape[0] != moves.shape[0]:
             print("Erreur : les dimensions des states et des moves ne correspondent pas.")
             return
 
         # Entraînement du modèle
         self.model.fit(states, moves, sample_weight=rewards, epochs=10)
+        
+        # Analyse de l'entrainement
+        self.model.fit(states, moves, sample_weight=rewards, epochs=10, callbacks=[tf.keras.callbacks.LambdaCallback(on_epoch_end=lambda epoch, logs: print(logs))])
 
-        # self.game_history = []
-
-    def save_model(self, file_path):
-        self.model.save(file_path)
-
-    def load_model(self, file_path):
-        self.model = tf.keras.models.load_model(file_path)
-    
+            
     def check_valid_moves(self, othello_game, board_instance):
         # Convertir en un format compris par l'IA
         state = self.convert_to_state(board_instance)
@@ -351,6 +473,7 @@ class Learner:
             return max(valid_moves, key=lambda move: predictions[0][move[1]*8 + move[0]])
         else:
             return None
+    
 
     def get_valid_moves(self, othello_game, board_instance):
         valid_moves = []
@@ -385,38 +508,21 @@ def play_games(number_of_games):
         othello_board.draw_board("Content")
         # Create 2 bots
         myBot = Learner()
-        otherBot = Learner()
+        otherBot = Bot()
         
-        # Chargements modèles
-        # try:
-        #     myBot.load_model("myBot_model.h5")
-        #     otherBot.load_model("otherBot_model.h5")
-        # except Exception as e:
-        #     print("Erreur lors du chargement des modèles:", e)
-
         while not othello_game.is_game_over:
             # First player / bot logic goes here
             if(othello_game.active_player == "B"):
                 move_coordinates = myBot.check_valid_moves(othello_game, othello_board)
-                # move_coordinates[0] = int(input("Coordonnées en X: "))
-                # move_coordinates[1] = int(input("Coordonnées en Y: "))
                 othello_game.place_pawn(
                 move_coordinates[0], move_coordinates[1], othello_board, othello_game.active_player)
 
             # Second player / bot logic goes here
             else:
                 move_others_coordinates = otherBot.check_valid_moves(othello_game, othello_board)
-                # move_coordinates[0] = int(input("Coordonnées en X: "))
-                # move_coordinates[1] = int(input("Coordonnées en Y: "))
                 othello_game.place_pawn(
                 move_others_coordinates[0], move_others_coordinates[1], othello_board, othello_game.active_player)
-        
-        myBot.train_model()
-        otherBot.train_model()
-        
-        # myBot.save_model("myBot_model.h5")
-        # otherBot.save_model("otherBot_model.h5")
-        
+                        
         if(othello_game.winner == "B"):
             black_victories += 1
         elif(othello_game.winner == "W"):
@@ -427,4 +533,4 @@ def play_games(number_of_games):
     print("White player won " + str(white_victories) + " times")
         
 
-play_games(9)
+play_games(50)
